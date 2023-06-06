@@ -1,0 +1,670 @@
+---
+title: "Labor Flows Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      error = FALSE)
+
+```
+
+
+```{r parameters, include = FALSE}
+
+# ## Set parameters
+# base_path = "C:/Users/zachm/Documents/George Mason/Projects/Labor Flows Paper/Results"
+# 
+# ## Docked results path
+# docked_path = "3_1_Homogenous_Labor/3_1_2_labor_demand_shock"
+# 
+# ## WFH comparison path
+# wfh_path = "3_1_WFH_extension/3_1_2_labor_demand_shock/Case_1"
+# 
+# 
+# ## Where should the results be written? Hmm...this just needs to be called since I can't save the results within the markdown script...
+# save_path = "C:/Users/zachm/Documents/George Mason/Projects/Labor Flows Paper/Results/Initial_results"
+
+
+```
+
+
+```{r load_dependencies, include = FALSE}
+
+## Load libraries/functions
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(cowplot)
+
+
+## Load visualization functions
+lpath = "C:/Users/zachm/Documents/George Mason/Projects/Labor Flows Paper/R visualizations"
+source(paste(lpath, "fxns_firm.R", sep = "/"))
+source(paste(lpath, "fxns_general.R", sep = "/"))
+source(paste(lpath, "fxns_labor.R", sep = "/"))
+source(paste(lpath, "fxns_network_smry.R", sep = "/"))
+
+```
+
+
+```{r local_fxns, include = FALSE}
+
+## Note that we cannot create a SD here - we'd have to go back to the raw data and do so
+## Do I really need the plots though? I can just look at the point estimates in equillibrium...
+
+## A function to get self nominal or real wage ratio (by sector)
+getPre2PostWageRatio = function(df,        # Data frame of interest (usually from getLocationData())
+                                colname,   # Wage column of interest
+                                new_name,  # What should the new column be called?
+                                time_comp  # Time step to grab the wage comparison (should be last time before shock)
+                                ){
+  
+  #### Input Checking ####
+  
+  
+  #### Begin Function ####
+  
+  ## Note - can't divide standard deviations, so this is only calculated for the mean
+  
+  
+  
+  
+  ## Get the ratio as new wage over the comp wage on a per location and per sector basis
+  ## This gives as an appropriate looking gain/lost relative to the pre-shock equilibrium wage
+  locs = unique(df$Mean$Name)
+  sectors = unique(df$Mean$Sector)
+  for (loc in locs){
+    for (sector in sectors){
+      
+      idx = (df$Mean$Name == loc) & (df$Mean$Sector == sector)
+      
+      ## Get the vector of appropriate wages for the indices of interest
+      tmp = df$Mean[[colname]][idx]
+      comp_val = tmp[time_comp]
+      
+      tmp[1:time_comp] = 1
+      id_shock = (time_comp + 1):length(tmp)
+      tmp[id_shock] = comp_val / tmp[id_shock]
+      
+      df$Mean[idx, new_name] = tmp
+    }
+  }
+  
+  
+  return(df)
+}
+
+
+## A function to get location nominal or real wage ratio (by sector)
+
+
+
+
+```
+
+
+
+#### Docked Comparison: `r docked_path`
+#### WFH Comparison: `r wfh_path`
+
+<br>
+
+#### Last run: `r format(Sys.time(), "%b %d, %Y")` 
+
+
+<p>
+
+```{r print_description, include = TRUE, results = 'asis'}
+
+cat(quick_description)
+
+```
+
+<p>
+
+
+
+This script displays the results for a given model docked to Moretti's work and compares it to the appropriate WFH extension. 
+
+Each graph presents the results stacked - Docked on top, WFH on the bottom. Note that because of the way these runs are conducted, the results display how WFH impacts the shock of the docked model.
+
+```{r import_data, include = FALSE}
+
+## Import docked data
+df_firms_docked = getFirmData(paste(base_path, docked_path, sep = "/"))
+df_loc_docked = getLocationData(paste(base_path, docked_path, sep = "/"))
+loc_mean_docked = df_loc_docked$Mean
+loc_sd_docked = df_loc_docked$Std
+
+
+
+## Import WFH data
+df_firms_wfh = getFirmData(paste(base_path, wfh_path, sep = "/"))
+df_loc_wfh = getLocationData(paste(base_path, wfh_path, sep = "/"))
+loc_mean_wfh = df_loc_wfh$Mean
+loc_sd_wfh = df_loc_wfh$Std
+
+
+
+```
+
+
+### Firm Comparisons
+
+```{r create_firm_plts, include = FALSE}
+
+## Mean Workers Plot
+plt1 = plotStatistic_location("Firm Mean Workers", loc_mean_docked, loc_sd_docked) + ylab("Docked")
+plt2 = plotStatistic_location("Firm Mean Workers", loc_mean_wfh, loc_sd_wfh) + ylab("WFH")
+
+ttl = ggdraw() + draw_label("Mean Workers per Firm", x = .15, size = 12) + theme_minimal()
+
+plt_mean_workers = plot_grid(ttl,
+                             plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                             ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+## Mean Profit Plot
+plt1 = plotStatistic_location("Firm Mean Profit", loc_mean_docked, loc_sd_docked)
+plt2 = plotStatistic_location("Firm Mean Profit", loc_mean_wfh, loc_sd_wfh)
+
+ttl = ggdraw() + draw_label("Mean Profit per Firm", x = .15, size = 12) + theme_minimal()
+
+plt_mean_profit = plot_grid(ttl,
+                            plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                            ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+## Mean Unfulfilled Hiring Quota
+plt1 = plotStatistic_location("Firm Mean Hiring Quota unfulfilled", loc_mean_docked, loc_sd_docked)
+plt2 = plotStatistic_location("Firm Mean Hiring Quota unfulfilled", loc_mean_wfh, loc_sd_wfh)
+
+ttl = ggdraw() + draw_label("Mean Unfulfilled Hiring Quota", x = .15, size = 12) + theme_minimal()
+
+plt_hiring_quota = plot_grid(ttl,
+                             plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                             ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+```
+
+
+```{r print_firm_plts, include = TRUE, fig.height = 5, fig.width = 12}
+
+plt_mean_workers
+plt_mean_profit
+plt_hiring_quota
+
+```
+
+
+### Location Comparisons - labor
+
+```{r create_location_worker_plts, include = FALSE}
+
+## Remote Workers
+plt1 = plotStatistic_location("remote workers", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("remote workers", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Remote Workers", x = .15, size = 12) + theme_minimal()
+
+plt_remote_workers = plot_grid(ttl,
+                               plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                               ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+## This is includes unemployed...
+## Mean Nominal Wage
+plt1 = plotStatistic_location("mean wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("mean wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Nominal Wage", x = .15, size = 12) + theme_minimal()
+
+plt_nom_wage_workers_wUnemp = plot_grid(ttl,
+                                        plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                                        ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+## Mean Real Wage 
+## Note - this should probably be plotted as a percent difference due to the rent calculation being crazy different with higher values of k
+# loc_mean_docked$`Mean Real Wage wUnemp` = loc_mean_docked$`mean wage` / loc_mean_docked$rent
+# loc_sd_docked$`Mean Real Wage wUnemp` = loc_sd_docked$`mean wage` / loc_sd_docked$rent
+loc_mean_docked$`Mean Real Wage wUnemp` = loc_mean_docked$`mean real wage` 
+loc_sd_docked$`Mean Real Wage wUnemp` = loc_sd_docked$`mean real wage`
+
+# loc_mean_wfh$`Mean Real Wage wUnemp` = loc_mean_wfh$`mean wage` / loc_mean_wfh$rent
+# loc_sd_wfh$`Mean Real Wage wUnemp` = loc_sd_wfh$`mean wage` / loc_sd_wfh$rent
+loc_mean_wfh$`Mean Real Wage wUnemp` = loc_mean_wfh$`mean real wage` 
+loc_sd_wfh$`Mean Real Wage wUnemp` = loc_sd_wfh$`mean real wage` 
+
+ttl = ggdraw() + draw_label("Real Wage", x = .15, size = 12) + theme_minimal()
+
+# plt1 = plotStatistic_location("Mean Real Wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+# plt2 = plotStatistic_location("Mean Real Wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("Docked")
+plt1 = plotStatistic_location("Mean Real Wage wUnemp", loc_mean_docked, loc_sd_docked) + ggtitle("Docked") # Don't show the bands here because the SD really throws off the scale
+plt2 = plotStatistic_location("Mean Real Wage wUnemp", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+plt_real_wage_workers_wUnemp = plot_grid(ttl,
+                                         plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                                         ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+## This does not include unemployed
+plt1 = plotStatistic_location("employed mean wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("employed mean wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Nominal Wage (excl unemployed)", x = .15, size = 12) + theme_minimal()
+
+plt_nom_wage_workers = plot_grid(ttl,
+                                 plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                                 ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+## Mean Real Wage 
+## Note - this should probably be plotted as a percent difference due to the rent calculation being crazy different with higher values of k
+
+loc_mean_docked$`Mean Real Wage` = loc_mean_docked$`employed mean real wage`
+loc_sd_docked$`Mean Real Wage` = loc_sd_docked$`employed mean real wage`
+
+loc_mean_wfh$`Mean Real Wage` = loc_mean_wfh$`employed mean real wage`
+loc_sd_wfh$`Mean Real Wage` = loc_sd_wfh$`employed mean real wage` 
+
+
+ttl = ggdraw() + draw_label("Real Wage (excl unemployed)", x = .15, size = 12) + theme_minimal()
+
+# plt1 = plotStatistic_location("Mean Real Wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+# plt2 = plotStatistic_location("Mean Real Wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("Docked")
+plt1 = plotStatistic_location("Mean Real Wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked") # Don't show the bands here because the SD really throws off the scale
+plt2 = plotStatistic_location("Mean Real Wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+plt_real_wage_workers = plot_grid(ttl,
+                                  plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                                  ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+
+## Rent
+plt1 = plotStatistic_location("rent", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("rent", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Rent", x = .15, size = 12) + theme_minimal()
+
+plt_rent = plot_grid(ttl,
+                     plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                     ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+
+## Preferred Location 
+plt1 = plotStatistic_location("preferred location", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("preferred location", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Preferred Location", x = .15, size = 12) + theme_minimal()
+
+plt_pref_loc = plot_grid(ttl,
+                         plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                         ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+## Proportion of workers in each location 
+loc_mean_docked$`Proportion Workers` = loc_mean_docked$`N workers` / loc_mean_docked$`Total Workers Sector`
+loc_mean_wfh$`Proportion Workers` = loc_mean_wfh$`N workers` / loc_mean_wfh$`Total Workers Sector`
+
+plt1 = plotStatistic_location("Proportion Workers", loc_mean_docked, NULL) + ggtitle("Docked")
+plt2 = plotStatistic_location("Proportion Workers", loc_mean_wfh, NULL) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Proportion Workers", x = .15, size = 12) + theme_minimal()
+
+plt_N_prop = plot_grid(ttl,
+                       plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                       ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+## Total Workers in each location (by Sector)
+plt1 = plotStatistic_location("N workers", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("N workers", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("N Workers", x = .15, size = 12) + theme_minimal()
+
+
+
+plt_N_tot = plot_grid(ttl,
+                      plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                      ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+
+## Employment Rate
+loc_mean_docked$`Employment Rate` = loc_mean_docked$`N Employed` / loc_mean_docked$`N workers`
+loc_sd_docked$`Employment Rate` = loc_sd_docked$`N Employed` / loc_sd_docked$`N workers`
+
+loc_mean_wfh$`Employment Rate` = loc_mean_wfh$`N Employed` / loc_mean_wfh$`N workers`
+loc_sd_wfh$`Employment Rate` = loc_sd_wfh$`N Employed` / loc_sd_wfh$`N workers`
+
+
+# plt1 = plotStatistic_location("Employment Rate", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+# plt2 = plotStatistic_location("Employment Rate", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+plt1 = plotStatistic_location("Employment Rate", loc_mean_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("Employment Rate", loc_mean_wfh) + ggtitle("WFH")
+
+
+ttl = ggdraw() + draw_label("Employment Rate", x = .15, size = 12) + theme_minimal()
+
+plt_emp_rate = plot_grid(ttl,
+                         plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                         ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+
+
+
+```
+
+```{r print_location_worker_plts, include = TRUE, fig.height = 5, fig.width = 12}
+
+plt_remote_workers
+plt_nom_wage_workers
+plt_real_wage_workers
+plt_nom_wage_workers_wUnemp
+plt_real_wage_workers_wUnemp
+plt_rent
+plt_pref_loc
+plt_N_tot
+plt_N_prop
+plt_emp_rate
+
+```
+
+```{r calc_wage_ratio_eq, include=FALSE}
+
+## Calculate the wage ratios and present them in a couple of tables:
+
+## Self wage pre and post shock
+n = length(unique(loc_mean_docked$Name)) * length(unique(loc_mean_docked$Sector)) # Note that this only works for 1 sector with 2 locations and 2 and 2 (need to remember how to do n choose k for more...)
+self_real_wage_docked = rep(NA, n)
+self_nominal_wage_docked = self_real_wage_docked
+self_real_wage_wfh = self_real_wage_docked
+self_nominal_wage_wfh = self_real_wage_docked
+cnt = 1
+cnames = rep(NA, n)
+for (loc in unique(loc_mean_docked$Name)){
+  for (sector in unique(loc_mean_docked$Sector)){
+    
+    idl = loc_mean_docked$Name == loc
+    ids = loc_mean_docked$Sector == sector
+    
+    ## Including the unemployed
+    tmp = loc_mean_docked$`mean real wage`[idl & ids]
+    self_real_wage_docked[cnt] = tmp[600] / tmp[200]
+    
+    tmp = loc_mean_docked$`mean wage`[idl & ids]
+    self_nominal_wage_docked[cnt] = tmp[600] / tmp[200]
+    
+    
+    idl = loc_mean_wfh$Name == loc
+    ids = loc_mean_wfh$Sector == sector
+    
+    tmp = loc_mean_wfh$`mean real wage`[idl & ids]
+    self_real_wage_wfh[cnt] = tmp[600] / tmp[200]
+    
+    
+    tmp = loc_mean_wfh$`mean wage`[idl & ids]
+    self_nominal_wage_wfh[cnt] = tmp[600] / tmp[200]
+    
+    cnames[cnt] = paste0(loc, " - ", sector)
+    cnt = cnt + 1
+  }
+}
+
+
+self_real_wage_pre2post = matrix(data = c(self_real_wage_docked, self_real_wage_wfh), nrow = 2, ncol = n, byrow = TRUE)
+colnames(self_real_wage_pre2post) = cnames
+rownames(self_real_wage_pre2post) = c("Docked", "WFH")
+
+self_nominal_wage_pre2post = matrix(data = c(self_nominal_wage_docked, self_nominal_wage_wfh), nrow = 2, ncol = n, byrow = TRUE)
+colnames(self_nominal_wage_pre2post) = cnames
+rownames(self_nominal_wage_pre2post) = c("Docked", "WFH")
+
+
+## Kableize these tables for ease of viewing
+tbl_wage_pre2post = kable(round(rbind(self_real_wage_pre2post, self_nominal_wage_pre2post), 2), 
+                          row.names = TRUE, align = 'c',
+                          caption = "Change in Wages pre-shock to post-shock") %>%
+                      kable_styling(bootstrap_options = "striped", full_width = FALSE) %>%
+                      pack_rows(group_label = "Real", start_row = 1, end_row = 2) %>%
+                      pack_rows(group_label = "Nominal", start_row = 3, end_row = 4)
+
+
+
+## Loc and Sector post shock
+n = length(unique(loc_mean_docked$Sector))
+comp_nominal_wage_docked = rep(NA, n)
+comp_real_wage_docked = comp_nominal_wage_docked
+comp_real_wage_wfh = comp_nominal_wage_docked
+comp_nominal_wage_wfh = comp_nominal_wage_docked
+cnt = 1
+cnames = rep(NA, n)
+for (sector in unique(loc_mean_docked$Sector)){
+  
+  cnames[cnt] = paste0("A/B - ", sector)
+  
+  idx = loc_mean_docked$Sector == sector
+  idA = loc_mean_docked$Name == "Location A"
+  idB = loc_mean_docked$Name == "Location B"
+  idT = loc_mean_docked$`Time Step` == 600
+  
+  comp_nominal_wage_docked[cnt] = loc_mean_docked$`mean wage`[idx & idA & idT] / loc_mean_docked$`mean wage`[idx & idB & idT]
+  comp_real_wage_docked[cnt] = loc_mean_docked$`mean real wage`[idx & idA & idT] / loc_mean_docked$`mean real wage`[idx & idB & idT]
+  
+  
+  idx = loc_mean_wfh$Sector == sector
+  idA = loc_mean_wfh$Name == "Location A"
+  idB = loc_mean_wfh$Name == "Location B"
+  idT = loc_mean_wfh$`Time Step` == 600
+  
+  comp_nominal_wage_wfh[cnt] = loc_mean_wfh$`mean wage`[idx & idA & idT] / loc_mean_wfh$`mean wage`[idx & idB & idT]
+  comp_real_wage_wfh[cnt] = loc_mean_wfh$`mean real wage`[idx & idA & idT] / loc_mean_wfh$`mean real wage`[idx & idB & idT]
+  
+  cnt = cnt + 1
+}
+
+comp_real_wage_loc = matrix(data = c(comp_real_wage_docked, comp_real_wage_wfh), nrow = 2, ncol = n, byrow = TRUE)
+colnames(comp_real_wage_loc) = cnames
+rownames(comp_real_wage_loc) = c("Docked", "WFH")
+
+comp_nominal_wage_loc= matrix(data = c(comp_nominal_wage_docked, comp_nominal_wage_wfh), nrow = 2, ncol = n, byrow = TRUE)
+colnames(comp_nominal_wage_loc) = cnames
+rownames(comp_nominal_wage_loc) = c("Docked", "WFH")
+
+## Kableize these tables for ease of viewing
+tbl_wage_loc_comp = kable(round(rbind(comp_real_wage_loc, comp_nominal_wage_loc), 2), 
+                          row.names = TRUE, align = 'c',
+                          caption = "Post-shock Wage Ratio by Location") %>%
+                      kable_styling(bootstrap_options = "striped", full_width = FALSE) %>%
+                      pack_rows(group_label = "Real", start_row = 1, end_row = 2) %>%
+                      pack_rows(group_label = "Nominal", start_row = 3, end_row = 4)
+
+
+## Loc and Sector post shock WFH and no WFH (may not actually need this)
+
+
+
+
+```
+
+The tables below compare wages pre- and post-shock within a sector, location, and model paradigm, as well as provide a ratio of final wages within each sector relative to Location B.
+
+```{r print_wage_comp_tables, include = TRUE}
+
+tbl_wage_pre2post
+
+tbl_wage_loc_comp
+
+```
+
+
+
+### Location Comparisons - firm
+
+```{r create_location_firm_plts, include = FALSE}
+
+## Histograms of firm sizes (compare these side-by-side)
+df_hist = do.call('rbind', df_firms_docked$Raw)
+colnames(df_hist) = gsub("\\.", " ", colnames(df_hist))
+df_hist = df_hist[df_hist$`Time Step` %in% c(0, 100, 199, 225, 245, 400),]
+hist_docked = ggplot(df_hist, aes(x = `Total Workers`, fill = Location)) + 
+                geom_histogram(bins = 45) +
+                facet_grid(`Time Step` ~ Sector) +
+                theme_minimal() +
+                ggtitle("Firm Size - Docked")
+
+df_hist = do.call('rbind', df_firms_wfh$Raw)
+colnames(df_hist) = gsub("\\.", " ", colnames(df_hist))
+df_hist = df_hist[df_hist$`Time Step` %in% c(0, 100, 199, 225, 245, 400),]
+hist_wfh = ggplot(df_hist, aes(x = `Total Workers`, fill = Location)) + 
+              geom_histogram(bins = 45) +
+              facet_grid(`Time Step` ~ Sector) +
+              theme_minimal() +
+              ggtitle("Firm Size - WFH")
+
+
+plt_hist = plot_grid(hist_docked, hist_wfh, ncol = 2, align = 'hv')
+
+
+
+
+## This is only the Firm Wage average
+plt1 = plotStatistic_location("Firm Mean Wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked")
+plt2 = plotStatistic_location("Firm Mean Wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+ttl = ggdraw() + draw_label("Firm Mean Nominal Wage", x = .15, size = 12) + theme_minimal()
+
+plt_nom_wage_firms = plot_grid(ttl,
+                               plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                               ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+## Mean Real Wage 
+## Note - this should probably be plotted as a percent difference due to the rent calculation being crazy different with higher values of k
+
+loc_mean_docked$`Mean Real Wage` = loc_mean_docked$`Firm Mean Real Wage`
+loc_sd_docked$`Mean Real Wage` = loc_sd_docked$`Firm Mean Real Wage`
+
+# loc_mean_wfh$`Mean Real Wage` = loc_mean_wfh$`Firm Mean Wage` / loc_mean_wfh$rent
+# loc_sd_wfh$`Mean Real Wage` = loc_sd_wfh$`Firm Mean Wage` / loc_sd_wfh$rent
+loc_mean_wfh$`Mean Real Wage` = loc_mean_wfh$`Firm Mean Real Wage`
+loc_sd_wfh$`Mean Real Wage` = loc_sd_wfh$`Firm Mean Real Wage` 
+
+
+ttl = ggdraw() + draw_label("Firm Mean Real Wage", x = .15, size = 12) + theme_minimal()
+
+plt1 = plotStatistic_location("Mean Real Wage", loc_mean_docked, loc_sd_docked) + ggtitle("Docked") # Don't show the bands here because the SD really throws off the scale
+plt2 = plotStatistic_location("Mean Real Wage", loc_mean_wfh, loc_sd_wfh) + ggtitle("WFH")
+
+plt_real_wage_firms = plot_grid(ttl,
+                                plot_grid(plt1, plt2, rel_heights = c(1, 1), align = 'hv', ncol = 1, nrow = 2),
+                                ncol = 1, nrow = 2, rel_heights = c(.15, 1))
+
+
+
+
+```
+
+
+```{r disp_loc_firm_plts, include = TRUE, fig.height=8, fig.width=12}
+
+plt_hist
+
+```
+
+```{r disp_loc_firm_wage_plts, include = TRUE, fig.height = 5, fig.width = 12}
+
+plt_nom_wage_firms
+plt_real_wage_firms
+
+```
+
+
+### Network Comparisons 
+
+```{r create_network_plts, include = FALSE}
+
+net_df_docked = getNetworkSummaryData(paste(base_path, docked_path, sep = "/"))
+net_df_wfh = getNetworkSummaryData(paste(base_path, wfh_path, sep = "/"))
+
+
+plt_net_docked = cowplot::plot_grid(plotStatistic_networkSummary("Total Edges", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Total Edges"),
+                                    plotStatistic_networkSummary("Global Clustering", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Global Clustering"),
+                                    plotStatistic_networkSummary("Density", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Density"),
+                                    ncol = 1, nrow = 3, align = 'hv')
+
+
+plt_net_wfh = cowplot::plot_grid(plotStatistic_networkSummary("Total Edges", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Total Edges"),
+                                 plotStatistic_networkSummary("Global Clustering", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Global Clustering"),
+                                 plotStatistic_networkSummary("Density", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Density"),
+                                 ncol = 1, nrow = 3, align = 'hv')
+
+```
+
+
+#### Docked: 
+
+```{r plt_net_docked, include = TRUE, fig.height=6, fig.width=12}
+plt_net_docked
+```
+
+
+#### WFH Comparison: 
+
+```{r plt_net_wfh, include = TRUE, fig.height=6, fig.width=12}
+plt_net_wfh
+```
+
+
+<!---
+### Network by Location 
+
+```{r create_network_plts_loc, include = FALSE}
+
+net_df_docked = getNetworkSummaryData(paste(base_path, docked_path, sep = "/"))
+net_df_wfh = getNetworkSummaryData(paste(base_path, wfh_path, sep = "/"))
+
+
+plt_net_docked_loc = cowplot::plot_grid(plotStatistic_networkSummary("Total Edges", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Total Edges"),
+                                    plotStatistic_networkSummary("Global Clustering", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Global Clustering"),
+                                    plotStatistic_networkSummary("Density", net_df_docked$Mean, net_df_docked$Std) + ggtitle("Density"),
+                                    ncol = 1, nrow = 3, align = 'hv')
+
+
+plt_net_wfh_loc = cowplot::plot_grid(plotStatistic_networkSummary("Total Edges", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Total Edges"),
+                                    plotStatistic_networkSummary("Global Clustering", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Global Clustering"),
+                                    plotStatistic_networkSummary("Density", net_df_wfh$Mean, net_df_wfh$Std) + ggtitle("Density"),
+                                    ncol = 1, nrow = 3, align = 'hv')
+
+```
+
+
+#### Docked: 
+
+```{r plt_net_docked_loc, include = TRUE, fig.height=6, fig.width=12}
+plt_net_docked_loc
+```
+
+
+#### WFH Comparison: 
+
+```{r plt_net_wfh_loc, include = TRUE, fig.height=6, fig.width=12}
+plt_net_wfh_loc
+```
+
+--->
+
+## Firm Policy
+
+*placeholder*
+

@@ -1,0 +1,21 @@
+.vscode
+
+/Results
+/Scratch
+/Presentations
+
+laborFlows_paper.log
+laborFlows_paper.Rmd
+laborFlows_paper.tex
+
+/Misc
+
+*.bib
+
+R visualizations/*.html
+
+/markdown_resources
+
+/Misc
+
+/laborFlows_paper_files
